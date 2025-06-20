@@ -27,7 +27,23 @@ M.start_chat = function(context)
   local generation_config = config.get_gemini_generation_config()
   local text = ''
   local model_id = config.get_config({ 'model', 'model_id' })
-  api.gemini_generate_content_stream(user_text, model_id, generation_config, function(json_text)
+  -- Pass nil for system_text as chat doesn't use it
+  api.gemini_generate_content_stream(user_text, nil, model_id, generation_config, function(json_text, is_error)
+    if is_error then
+      -- Handle potential errors from the stream ending, e.g., curl exit code non-zero
+      -- You might want to display an error message in the buffer
+      vim.schedule(function()
+        table.insert(lines, "\nError during streaming.")
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+      end)
+      return
+    end
+
+    if not json_text then
+      -- Stream finished successfully
+      return
+    end
+
     local model_response = vim.json.decode(json_text)
     model_response = util.table_get(model_response, { 'candidates', 1, 'content', 'parts', 1, 'text' })
     if not model_response then
