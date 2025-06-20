@@ -106,24 +106,43 @@ require('gemini').setup({
 
 COMMANDS                                                     *gemini.nvim-commands*
 
-:GeminiTask            ask Gemini to complete some task. this would use current opened buffer as context. this would also open up a diff pane in the current window
+:GeminiTask {user_prompt}
+                        Ask Gemini to complete some task. This would use
+                        current opened buffer as context. This would also
+                        open up a diff pane in the current window.
 
-:GeminiApply           this would apply the diff result from :GeminiTask
+:GeminiApply            Apply the diff result from |:GeminiTask|.
 
-:GeminiChat            ask Gemini to do something. this doesn't use any context
+:GeminiChat {user_prompt}
+                        Ask Gemini to do something. This doesn't use any
+                        context.
 
-:GeminiCodeExplain     select some code and ask Gemini what does it do
+:GeminiCodeExplain      (Visually select code first) Ask Gemini what the
+                        selected code does.
 
-:GeminiCodeReview      do some code review
+:GeminiCodeReview       (Visually select code first) Ask Gemini to perform a
+                        code review on the selected code.
 
-:GeminiUnitTest        let Gemini write your unit test
+:GeminiUnitTest         (Visually select code first) Ask Gemini to write unit
+                        tests for the selected code.
 
-:GeminiFunctionHint    give some function documentation
+:GeminiFunctionHint     Show a quick hint/documentation for the function
+                        under the cursor.
 
+:GeminiOpenLogs         Open the gemini.nvim log file in a new vertical split.
+                        This requires `logging.file_path` to be configured in
+                        the setup options.
 
 
 MAPPINGS                                                     *gemini.nvim-mappings*
 
-<leader><leader><leader>g     open a popup menu to select some task to do
+<leader><leader><leader>g
+                        (Normal mode) Open a popup menu to select instruction
+                        tasks (e.g., Code Explain, Code Review, Unit Test).
 
-<S-Tab>                       confirm gemini's autocomplete
+<S-Tab>                 (Insert mode) Confirm and insert Gemini's
+                        autocomplete suggestion.
+
+<S-Tab>                 (Normal mode, for Hints) Insert the displayed hint
+                        content into the buffer at the hint's original
+                        location.

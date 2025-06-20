@@ -149,3 +149,20 @@ require('gemini').setup({
   }
 })
 ```
+
+## Commands
+
+- `:GeminiTask <user_prompt>`: Ask Gemini to complete a task using current open buffers as context. Opens a diff pane.
+- `:GeminiApply`: Apply the diff result from `:GeminiTask`.
+- `:GeminiChat <user_prompt>`: Start a chat with Gemini. Does not use buffer context.
+- `:GeminiCodeExplain`: (Visually select code first) Ask Gemini to explain the selected code.
+- `:GeminiCodeReview`: (Visually select code first) Ask Gemini to review the selected code.
+- `:GeminiUnitTest`: (Visually select code first) Ask Gemini to write unit tests for the selected code.
+- `:GeminiFunctionHint`: Show a quick hint/documentation for the function under the cursor.
+- `:GeminiOpenLogs`: Open the gemini.nvim log file in a new vertical split (if `logging.file_path` is configured).
+
+## Mappings
+
+- `<Leader><Leader><Leader>g`: (Normal mode) Open a popup menu to select instruction tasks (Code Explain, Review, Unit Test).
+- `<S-Tab>`: (Insert mode) Confirm and insert Gemini's autocomplete suggestion.
+- `<S-Tab>`: (Normal mode, for Hints) Insert the displayed hint content into the buffer.

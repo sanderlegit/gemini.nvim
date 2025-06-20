@@ -38,6 +38,18 @@ M.setup = function(opts)
   require('gemini.completion').setup()
   require('gemini.task').setup()
 
+  vim.api.nvim_create_user_command('GeminiOpenLogs', function()
+    local log_file_path = config.get_config({ 'logging', 'file_path' })
+    if log_file_path and #log_file_path > 0 then
+      vim.cmd('vsplit ' .. vim.fn.fnameescape(log_file_path))
+    else
+      util.log(vim.log.levels.WARN, "Gemini log file path is not configured. Set 'logging.file_path' in your setup options.")
+    end
+  end, {
+    force = true,
+    desc = 'Open the gemini.nvim log file, if configured.',
+  })
+
   util.log(vim.log.levels.INFO, "gemini.nvim setup complete.")
 end
 
