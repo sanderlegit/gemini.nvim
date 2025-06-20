@@ -12,7 +12,7 @@ local function table_get(t, id)
 end
 
 local default_model_config = {
-  model_id = 'gemini-2.0-flash',
+  model_id = 'gemini-2.5-flash',
   temperature = 0.1,
   top_k = 128,
   response_mime_type = 'text/plain',
@@ -89,7 +89,7 @@ Instruction: Use 1 or 2 sentences to describe what the following {filetype} func
 
 local default_completion_config = {
   enabled = true,
-  auto_trigger = true,
+  auto_trigger = false,
   blacklist_filetypes = { 'help', 'qf', 'json', 'yaml', 'toml', 'xml' },
   blacklist_filenames = { '.env' },
   completion_delay = 1000,
