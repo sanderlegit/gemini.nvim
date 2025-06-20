@@ -8,7 +8,7 @@ local function is_nvim_version_ge(major, minor, patch)
   if v.major > major then
     return true
   elseif v.major == major then
-    if v.minor > 9 then -- Note: This should likely be v.minor > minor, or handle 0.10.0 correctly
+    if v.minor > minor then
       return true
     elseif v.minor == minor and v.patch >= patch then
       return true
