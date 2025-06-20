@@ -41,7 +41,7 @@ end
 local get_prompt_text = function(bufnr, pos)
   local get_prompt = config.get_config({ 'completion', 'get_prompt' })
   if not get_prompt then
-    vim.notify('prompt function is not found', vim.log.levels.WARN)
+    vim.notify('Completion prompt function (get_prompt) is not found in config.', vim.log.levels.WARN)
     return nil
   end
   return get_prompt(bufnr, pos)
@@ -53,6 +53,7 @@ M._gemini_complete = function()
   local pos = vim.api.nvim_win_get_cursor(win)
   local user_text = get_prompt_text(bufnr, pos)
   if not user_text then
+    vim.notify("GeminiCompletion: User text for prompt is nil, aborting.", vim.log.levels.DEBUG)
     return
   end
 
@@ -64,18 +65,45 @@ M._gemini_complete = function()
 
   local generation_config = config.get_gemini_generation_config()
   local model_id = config.get_config({ 'model', 'model_id' })
+
+  vim.notify("GeminiCompletion: Sending request to API.", vim.log.levels.DEBUG)
   api.gemini_generate_content(user_text, system_text, model_id, generation_config, function(result)
+    vim.notify("GeminiCompletion: Received API response. Code: " .. tostring(result.code), vim.log.levels.DEBUG)
+
+    if result.code ~= 0 then
+      vim.notify("GeminiCompletion API error. Code: " .. result.code, vim.log.levels.ERROR)
+    end
+    if result.stderr and #result.stderr > 0 then
+      vim.notify("GeminiCompletion API stderr: " .. result.stderr, vim.log.levels.WARN)
+    end
+
     local json_text = result.stdout
-    if json_text and #json_text > 0 then
-      local model_response = vim.json.decode(json_text)
-      model_response = util.table_get(model_response, { 'candidates', 1, 'content', 'parts', 1, 'text' })
-      if model_response ~= nil and #model_response > 0 then
-        vim.schedule(function()
-          if model_response then
-            M.show_completion_result(model_response, win, pos)
-          end
-        end)
+    if not json_text or #json_text == 0 then
+      if result.code == 0 and (not result.stderr or #result.stderr == 0) then
+        vim.notify("GeminiCompletion API returned empty stdout without other errors.", vim.log.levels.WARN)
+      elseif result.code ~=0 or (result.stderr and #result.stderr > 0) then
+        -- Error already logged, do nothing more here for empty stdout
+      else
+        vim.notify("GeminiCompletion API returned empty stdout. Raw result: " .. vim.inspect(result), vim.log.levels.DEBUG)
       end
+      return
+    end
+
+    local model_response_decoded = vim.json.decode(json_text)
+    if not model_response_decoded then
+        vim.notify("GeminiCompletion: Failed to decode JSON response: " .. json_text, vim.log.levels.WARN)
+        return
+    end
+
+    local model_response_text = util.table_get(model_response_decoded, { 'candidates', 1, 'content', 'parts', 1, 'text' })
+    if model_response_text ~= nil and #model_response_text > 0 then
+      vim.schedule(function()
+        if model_response_text then -- Re-check in case of async weirdness, though unlikely here
+          M.show_completion_result(model_response_text, win, pos)
+        end
+      end)
+    else
+      vim.notify("GeminiCompletion: Extracted text from model response is nil or empty. Full response: " .. json_text, vim.log.levels.DEBUG)
     end
   end)
 end

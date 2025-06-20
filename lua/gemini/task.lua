@@ -30,7 +30,7 @@ end
 local get_prompt_text = function(bufnr, user_prompt)
   local get_prompt = config.get_config({ 'task', 'get_prompt' })
   if not get_prompt then
-    vim.notify('prompt function is not found', vim.log.levels.WARN)
+    vim.notify('Task prompt function (get_prompt) is not found in config.', vim.log.levels.WARN)
     return nil
   end
   return get_prompt(bufnr, user_prompt)
@@ -60,6 +60,10 @@ M.run_task = function(ctx)
   local bufnr = vim.api.nvim_get_current_buf()
   local user_prompt = ctx.args
   local prompt = get_prompt_text(bufnr, user_prompt)
+  if not prompt then
+    vim.notify("GeminiTask: Prompt is nil, aborting.", vim.log.levels.DEBUG)
+    return
+  end
 
   local system_text = nil
   local get_system_text = config.get_config({ 'task', 'get_system_text' })
@@ -70,22 +74,46 @@ M.run_task = function(ctx)
   vim.notify('-- running Gemini Task...', vim.log.levels.INFO)
   local generation_config = config.get_gemini_generation_config()
   local model_id = config.get_config({ 'model', 'model_id' })
+
   api.gemini_generate_content(prompt, system_text, model_id, generation_config, function(result)
+    vim.notify("GeminiTask: Received API response. Code: " .. tostring(result.code), vim.log.levels.DEBUG)
+
+    if result.code ~= 0 then
+      vim.notify("GeminiTask API error. Code: " .. result.code, vim.log.levels.ERROR)
+    end
+    if result.stderr and #result.stderr > 0 then
+      vim.notify("GeminiTask API stderr: " .. result.stderr, vim.log.levels.WARN)
+    end
+
     local json_text = result.stdout
-    if json_text and #json_text > 0 then
-      local model_response = vim.json.decode(json_text)
-      model_response = util.table_get(model_response, { 'candidates', 1, 'content', 'parts', 1, 'text' })
-      if model_response ~= nil and #model_response > 0 then
-        model_response = util.strip_code(model_response)
-        vim.schedule(function()
-          model_response = vim.fn.join(model_response, '\n')
-          if #model_response then
-            context.bufnr = bufnr
-            context.model_response = model_response
-            context.tmpfile = diff_with_current_file(bufnr, model_response)
-          end
-        end)
+    if not json_text or #json_text == 0 then
+      if result.code == 0 and (not result.stderr or #result.stderr == 0) then
+        vim.notify("GeminiTask API returned empty stdout without other errors.", vim.log.levels.WARN)
       end
+      return
+    end
+
+    local model_response_decoded = vim.json.decode(json_text)
+    if not model_response_decoded then
+        vim.notify("GeminiTask: Failed to decode JSON response: " .. json_text, vim.log.levels.WARN)
+        return
+    end
+
+    local model_response_text = util.table_get(model_response_decoded, { 'candidates', 1, 'content', 'parts', 1, 'text' })
+    if model_response_text ~= nil and #model_response_text > 0 then
+      model_response_text = util.strip_code(model_response_text)
+      vim.schedule(function()
+        model_response_text = vim.fn.join(model_response_text, '\n')
+        if #model_response_text > 0 then
+          context.bufnr = bufnr
+          context.model_response = model_response_text
+          context.tmpfile = diff_with_current_file(bufnr, model_response_text)
+        else
+          vim.notify("GeminiTask: Model response (after stripping code) is empty.", vim.log.levels.DEBUG)
+        end
+      end)
+    else
+      vim.notify("GeminiTask: Extracted text from model response is nil or empty. Full response: " .. json_text, vim.log.levels.DEBUG)
     end
   end)
 end
