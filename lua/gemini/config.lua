@@ -81,7 +81,7 @@ Instruction: Use 1 or 2 sentences to describe what the following {filetype} func
 
 local default_completion_config = {
   enabled = true,
-  auto_trigger = true,
+  auto_trigger = false,
   blacklist_filetypes = { 'help', 'qf', 'json', 'yaml', 'toml', 'xml' },
   blacklist_filenames = { '.env' },
   completion_delay = 1000,
