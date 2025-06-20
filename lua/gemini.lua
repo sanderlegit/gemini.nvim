@@ -53,4 +53,8 @@ M.setup = function(opts)
   util.log(vim.log.levels.INFO, true, "gemini.nvim setup complete.")
 end
 
+M.complete = function()
+  require('gemini.completion').manual_complete()
+end
+
 return M
