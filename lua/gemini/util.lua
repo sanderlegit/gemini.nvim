@@ -1,30 +1,5 @@
 local M = {}
 
-M.borderchars = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' }
-
-M.open_window = function(content, options)
-  local popup = require('plenary.popup')
-  options.borderchars = M.borderchars
-  local win_id, result = popup.create(content, options)
-  local bufnr = vim.api.nvim_win_get_buf(win_id)
-  local border = result.border
-  vim.api.nvim_set_option_value('ft', 'markdown', { buf = bufnr })
-  vim.api.nvim_set_option_value('wrap', true, { win = win_id })
-
-  local close_popup = function()
-    vim.api.nvim_win_close(win_id, true)
-  end
-
-  local keys = { '<C-q>', 'q' }
-  for _, key in pairs(keys) do
-    vim.api.nvim_buf_set_keymap(bufnr, 'n', key, '', {
-      silent = true,
-      callback = close_popup,
-    })
-  end
-  return win_id, bufnr, border
-end
-
 M.treesitter_has_lang = function(bufnr)
   local filetype = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
   local lang = vim.treesitter.language.get_lang(filetype)
@@ -85,7 +60,7 @@ end
 
 M.strip_code = function(text)
   local code_blocks = {}
-  local pattern = "```(%w+)%s*(.-)%s*```"
+  local pattern = "```(%w*)%s*(.-)%s*```"
   for _, code_block in text:gmatch(pattern) do
     table.insert(code_blocks, code_block)
   end

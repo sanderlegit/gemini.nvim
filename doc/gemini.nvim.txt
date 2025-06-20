@@ -1,148 +1,199 @@
 *gemini.nvim*    Google's Gemini neovim binding
 
-INTRODUCTION                                    *gemini.nvim-intro*
+==============================================================================
+CONTENTS                                                 *gemini.nvim-contents*
 
-This plugin try to interface Google's Gemini API into neovim.
+1. Introduction.........................................*gemini.nvim-intro*
+2. Prerequisites........................................*gemini.nvim-prerequisites*
+3. Installation.........................................*gemini.nvim-install*
+4. Configuration........................................*gemini.nvim-config*
+5. Usage................................................*gemini.nvim-usage*
+   - Commands...........................................*gemini.nvim-commands*
+   - Mappings...........................................*gemini.nvim-mappings*
+6. Troubleshooting......................................*gemini.nvim-troubleshooting*
 
+==============================================================================
+INTRODUCTION                                            *gemini.nvim-intro*
 
+This plugin provides an interface to Google's Gemini API within Neovim,
+enabling features like code completion, chat, code analysis, and more,
+powered by AI.
 
-INSTALLATION                                    *gemini.nvim-install*
+==============================================================================
+PREREQUISITES                                       *gemini.nvim-prerequisites*
 
-install curl
+Before installing, make sure you have the following:
 
-sudo apt install curl
+1. *Neovim*: Version 0.9.1 or later.
+2. *cURL*: The plugin uses `curl` to make API requests. Install it using your
+   system's package manager (e.g., `sudo apt install curl`).
+3. *Gemini API Key*: You need to obtain an API key from Google AI Studio.
 
-setup API key
+Once you have the API key, you must export it as an environment variable. It's
+recommended to add this line to your shell's startup file (e.g., `.bashrc`,
+`.zshrc`).
+>
+    export GEMINI_API_KEY="<your API key here>"
+<
+You can verify it's set in Neovim by running `:echo $GEMINI_API_KEY`.
 
-export GEMINI_API_KEY="<your API key here>"
+==============================================================================
+INSTALLATION                                            *gemini.nvim-install*
 
-lazy.nvim:
+You can install `gemini.nvim` using your favorite plugin manager.
 
-{
-  'kiddos/gemini.nvim',
-  opts = {}
-}
-
-
-
-CONFIGURATION                                    *gemini.nvim-config*
-
-Default settings:
-```lua
-{
-  model_config = {
-    model_id = "gemini-2.0-flash", -- See `lua/gemini/api.lua` for M.MODELS
-    temperature = 0.1,
-    top_k = 128,
-    response_mime_type = 'text/plain',
-  },
-  chat_config = {
-    enabled = true,
-  },
-  hints = {
-    enabled = true,
-    hints_delay = 2000,
-    insert_result_key = '<S-Tab>',
-    get_prompt = function(node, bufnr)
-      -- Default prompt function for hints
-    end
-  },
-  completion = {
-    enabled = true,
-    blacklist_filetypes = { 'help', 'qf', 'json', 'yaml', 'toml', 'xml' },
-    blacklist_filenames = { '.env' },
-    completion_delay = 1000,
-    insert_result_key = '<S-Tab>',
-    move_cursor_end = true,
-    can_complete = function()
-      return vim.fn.pumvisible() ~= 1
-    end,
-    get_system_text = function()
-      -- Default system text for completion
-    end,
-    get_prompt = function(bufnr, pos)
-      -- Default prompt function for completion
-    end
-  },
-  instruction = {
-    enabled = true,
-    menu_key = '<Leader><Leader><Leader>g',
-    prompts = {
-      -- Default instruction prompts (Unit Test, Code Review, Code Explain)
+*lazy.nvim*:
+>
+    {
+      'kiddos/gemini.nvim',
+      opts = {} -- Optional: pass setup options here
     }
-  },
-  task = {
-    enabled = true,
-    get_system_text = function()
-      -- Default system text for task
-    end,
-    get_prompt = function(bufnr, user_prompt)
-      -- Default prompt function for task
-    end
-  },
-  logging = {
-    -- Path to the log file. If nil, file logging is disabled.
-    -- Example: file_path = vim.fn.stdpath('cache') .. '/gemini.nvim.log'
-    file_path = nil,
-    -- Log level for the file. Uses vim.log.levels.
-    -- (ERROR, WARN, INFO, DEBUG, TRACE)
-    level = vim.log.levels.INFO,
-  }
-}
-```
+<
+*packer.nvim*:
+>
+    use { 'kiddos/gemini.nvim', config = function() require('gemini').setup({}) end }
+<
 
-For detailed default prompt implementations, please refer to `lua/gemini/config.lua`.
+==============================================================================
+CONFIGURATION                                           *gemini.nvim-config*
 
-To enable file logging, you can set `logging.file_path` in your setup options:
-```lua
-require('gemini').setup({
-  logging = {
-    file_path = vim.fn.stdpath('cache') .. '/gemini.nvim.log',
-    level = vim.log.levels.DEBUG, -- Log DEBUG messages and above
-  }
-})
-```
+The plugin comes with sensible defaults. You can override them by passing an
+options table to the `setup()` function.
 
+For a full list of configurable options and their default values, please refer
+to the source file `lua/gemini/config.lua`.
 
-COMMANDS                                                     *gemini.nvim-commands*
+Here is an example of how to customize the configuration:
+>
+    require('gemini').setup({
+      -- For example, to enable logging for troubleshooting
+      logging = {
+        file_path = vim.fn.stdpath('cache') .. '/gemini.nvim.log',
+        level = vim.log.levels.DEBUG, -- Log DEBUG messages and above
+      },
+      -- You can override any other configuration tables here
+      model_config = {
+        model_id = "gemini-1.5-pro",
+      }
+    })
+<
+A summary of the default configuration is below. Note that prompt functions
+are omitted for brevity.
+>
+    {
+      model_config = {
+        model_id = "gemini-2.0-flash",
+        temperature = 0.1,
+        top_k = 128,
+        response_mime_type = 'text/plain',
+      },
+      chat_config = { enabled = true },
+      hints = {
+        enabled = true,
+        hints_delay = 2000,
+        insert_result_key = '<S-Tab>',
+      },
+      completion = {
+        enabled = true,
+        auto_trigger = true,
+        blacklist_filetypes = { 'help', 'qf', 'json', 'yaml', 'toml', 'xml' },
+        blacklist_filenames = { '.env' },
+        completion_delay = 1000,
+        insert_result_key = '<S-Tab>',
+        move_cursor_end = true,
+      },
+      instruction = {
+        enabled = true,
+        menu_key = '<Leader><Leader><Leader>g',
+      },
+      task = { enabled = true },
+      logging = {
+        file_path = nil,
+        level = vim.log.levels.INFO,
+      }
+    }
+<
+
+==============================================================================
+USAGE                                                   *gemini.nvim-usage*
+
+------------------------------------------------------------------------------
+COMMANDS                                                *gemini.nvim-commands*
 
 :GeminiTask {user_prompt}
-                        Ask Gemini to complete some task. This would use
-                        current opened buffer as context. This would also
-                        open up a diff pane in the current window.
+    Ask Gemini to complete a task using open buffers as context. Opens a diff
+    view to see proposed changes.
 
-:GeminiApply            Apply the diff result from |:GeminiTask|.
+:GeminiApply
+    Apply the changes from the |:GeminiTask| diff view.
 
 :GeminiChat {user_prompt}
-                        Ask Gemini to do something. This doesn't use any
-                        context.
+    Start a chat with Gemini in a new tab. This does not use your code as
+    context.
 
-:GeminiCodeExplain      (Visually select code first) Ask Gemini what the
-                        selected code does.
+:GeminiCodeExplain
+    (Visually select code first) Ask Gemini to explain the selected code.
 
-:GeminiCodeReview       (Visually select code first) Ask Gemini to perform a
-                        code review on the selected code.
+:GeminiCodeReview
+    (Visually select code first) Ask Gemini to review the selected code.
 
-:GeminiUnitTest         (Visually select code first) Ask Gemini to write unit
-                        tests for the selected code.
+:GeminiUnitTest
+    (Visually select code first) Ask Gemini to write unit tests for the
+    selected code.
 
-:GeminiFunctionHint     Show a quick hint/documentation for the function
-                        under the cursor.
+:GeminiFunctionHint
+    Show a quick hint/documentation for the function under the cursor.
 
-:GeminiOpenLogs         Open the gemini.nvim log file in a new vertical split.
-                        This requires `logging.file_path` to be configured in
-                        the setup options.
+:GeminiOpenLogs
+    Open the plugin's log file in a new vertical split. This requires
+    `logging.file_path` to be configured in the setup options.
 
+------------------------------------------------------------------------------
+MAPPINGS                                                *gemini.nvim-mappings*
 
-MAPPINGS                                                     *gemini.nvim-mappings*
+<Leader><Leader><Leader>g
+    (Normal mode) Open a popup menu to select an instruction task (e.g., Code
+    Explain, Code Review, Unit Test).
 
-<leader><leader><leader>g
-                        (Normal mode) Open a popup menu to select instruction
-                        tasks (e.g., Code Explain, Code Review, Unit Test).
+<S-Tab>
+    (Insert mode) Accept and insert the current inline completion suggestion.
 
-<S-Tab>                 (Insert mode) Confirm and insert Gemini's
-                        autocomplete suggestion.
+<S-Tab>
+    (Normal mode) When a function hint is visible, insert the hint content
+    into the buffer.
 
-<S-Tab>                 (Normal mode, for Hints) Insert the displayed hint
-                        content into the buffer at the hint's original
-                        location.
+==============================================================================
+TROUBLESHOOTING                                     *gemini.nvim-troubleshooting*
+
+If you encounter issues like hangs or commands not being available, follow
+these steps:
+
+1. *Enable Logging*
+   The most helpful step is to enable logging. Configure the `logging` option
+   in your setup as shown in |gemini.nvim-config|. Set the level to `DEBUG`
+   for maximum detail.
+>
+    require('gemini').setup({
+      logging = {
+        file_path = vim.fn.stdpath('cache') .. '/gemini.nvim.log',
+        level = vim.log.levels.DEBUG,
+      }
+    })
+<
+2. *Check the Logs*
+   Restart Neovim, reproduce the issue, and then use |:GeminiOpenLogs| to view
+   the log file. Look for any `ERROR` or `WARN` messages. You can also check
+   Neovim's standard messages with |:messages|.
+
+3. *Check Prerequisites*
+   Ensure all items in |gemini.nvim-prerequisites| are met. Verify that your
+   `GEMINI_API_KEY` is correctly exported and available within your Neovim
+   session by running `:echo $GEMINI_API_KEY`.
+
+4. *Check for Keymap Conflicts*
+   If a specific key (like `<C-l>`) causes issues, it might be a conflict.
+   This plugin does not map `<C-l>`, but another plugin might. You can check
+   what a key is mapped to by running `:verbose nmap <C-l>` (for normal
+   mode). If there is a conflict, you may need to change your mappings.
+
+vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:
