@@ -51,7 +51,8 @@ M.gemini_generate_content = function(user_text, system_text, model_name, generat
   end
 
   local json_text = vim.json.encode(data)
-  local cmd = { 'curl', '-X', 'POST', api, '-H', 'Content-Type: application/json', '--data-binary', '@-' }
+  -- Added -s for silent mode to suppress progress meter
+  local cmd = { 'curl', '-s', '-X', 'POST', api, '-H', 'Content-Type: application/json', '--data-binary', '@-' }
   local opts = { stdin = json_text }
   -- Debugging: print command and opts
   -- print("vim.system cmd:", vim.inspect(cmd))
@@ -107,8 +108,10 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
   local stdout_pipe = uv.new_pipe(false)
   local stderr_pipe = uv.new_pipe(false)
 
-  local args = {
-    'curl',
+  -- Arguments for the 'curl' command. '-s' for silent.
+  -- The command itself ('curl') is the first argument to uv.spawn.
+  local command_args = {
+    '-s', -- Silent mode to suppress progress meter
     '-X', 'POST',
     api,
     '-H', 'Content-Type: application/json',
@@ -117,11 +120,11 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
 
   local options = {
     stdio = { stdin_pipe, stdout_pipe, stderr_pipe },
-    args = args,
+    args = command_args, -- Pass only the arguments to curl
   }
 
   -- Debugging: print curl command
-  -- print("curl command args:", vim.inspect(args))
+  -- print("curl command args:", vim.inspect(command_args))
   -- print("json_text to send:", json_text)
 
   local proc = uv.spawn('curl', options, function(code, signal)
@@ -199,7 +202,10 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
       return
     end
     if data then
-      vim.notify("Curl STDERR: " .. data, vim.log.levels.WARN)
+      -- Only notify if it's not just whitespace or empty (curl -s might still output newline on error)
+      if not string.match(data, "^%s*$") then
+        vim.notify("Curl STDERR: " .. data, vim.log.levels.WARN)
+      end
     else -- EOF on stderr
       uv.read_stop(stderr_pipe)
     end
