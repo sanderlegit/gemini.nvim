@@ -67,7 +67,7 @@ M.run_task = function(ctx)
     system_text = get_system_text()
   end
 
-  print('-- running Gemini Task...')
+  vim.notify('-- running Gemini Task...', vim.log.levels.INFO)
   local generation_config = config.get_gemini_generation_config()
   local model_id = config.get_config({ 'model', 'model_id' })
   api.gemini_generate_content(prompt, system_text, model_id, generation_config, function(result)
@@ -94,7 +94,7 @@ local function close_split_by_filename(tmpfile)
   -- Get the buffer number for the temp file
   local bufnr = vim.fn.bufnr(tmpfile)
   if bufnr == -1 then
-    print("No buffer found for file: " .. tmpfile)
+    vim.notify("No buffer found for file: " .. tmpfile, vim.log.levels.WARN)
     return
   end
 
@@ -106,12 +106,12 @@ local function close_split_by_filename(tmpfile)
       return
     end
   end
-  print("No window found showing the buffer for file: " .. tmpfile)
+  vim.notify("No window found showing the buffer for file: " .. tmpfile, vim.log.levels.WARN)
 end
 
 M.apply_patch = function()
   if context.bufnr and context.model_response then
-    print('-- apply changes from Gemini')
+    vim.notify('-- apply changes from Gemini', vim.log.levels.INFO)
     local lines = vim.split(context.model_response, '\n')
     vim.api.nvim_buf_set_lines(context.bufnr, 0, -1, false, lines)
 

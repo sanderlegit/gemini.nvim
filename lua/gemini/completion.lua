@@ -90,7 +90,7 @@ M.gemini_complete = util.debounce(function()
     return
   end
 
-  print('-- gemini complete --')
+  vim.notify('-- gemini complete --', vim.log.levels.INFO)
   M._gemini_complete()
 end, config.get_config({ 'completion', 'completion_delay' }) or 1000)
 
