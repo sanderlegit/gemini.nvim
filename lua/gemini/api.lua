@@ -1,4 +1,5 @@
 local uv = vim.loop or vim.uv -- This is correct
+local util = require('gemini.util')
 
 local M = {}
 
@@ -19,7 +20,7 @@ M.MODELS = {
 M.gemini_generate_content = function(user_text, system_text, model_name, generation_config, callback)
   local api_key = os.getenv("GEMINI_API_KEY")
   if not api_key then
-    vim.notify("GEMINI_API_KEY environment variable not set.", vim.log.levels.ERROR)
+    util.log(vim.log.levels.ERROR, "GEMINI_API_KEY environment variable not set.")
     -- Ensure callback is called with an error indication if provided
     if callback then
       callback({ stdout = '', stderr = "GEMINI_API_KEY not set", code = -1 })
@@ -68,17 +69,17 @@ M.gemini_generate_content = function(user_text, system_text, model_name, generat
 end
 
 M.gemini_generate_content_stream = function(user_text, system_text, model_name, generation_config, callback)
-  vim.notify("gemini_generate_content_stream called. User text (first 100 chars): " .. string.sub(user_text or "nil", 1, 100), vim.log.levels.DEBUG)
+  util.log(vim.log.levels.DEBUG, "gemini_generate_content_stream called. User text (first 100 chars): ", string.sub(user_text or "nil", 1, 100))
 
   local api_key = os.getenv("GEMINI_API_KEY")
   if not api_key then
-    vim.notify("GEMINI_API_KEY environment variable not set.", vim.log.levels.ERROR)
+    util.log(vim.log.levels.ERROR, "GEMINI_API_KEY environment variable not set.")
     if callback then callback(nil, true) end -- Signal error
     return
   end
 
   if not callback then
-    vim.notify("Callback function is required for streaming.", vim.log.levels.ERROR)
+    util.log(vim.log.levels.ERROR, "Callback function is required for streaming.")
     return
   end
 
@@ -108,14 +109,14 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
   end
 
   local json_text = vim.json.encode(data)
-  vim.notify("Streaming API JSON payload (first 100 chars): " .. string.sub(json_text, 1, 100), vim.log.levels.DEBUG)
+  util.log(vim.log.levels.DEBUG, "Streaming API JSON payload (first 100 chars): ", string.sub(json_text, 1, 100))
 
   local stdin_pipe = uv.new_pipe(false)
   local stdout_pipe = uv.new_pipe(false)
   local stderr_pipe = uv.new_pipe(false)
 
   if not stdin_pipe or not stdout_pipe or not stderr_pipe then
-    vim.notify("Failed to create one or more UV pipes for streaming.", vim.log.levels.ERROR)
+    util.log(vim.log.levels.ERROR, "Failed to create one or more UV pipes for streaming.")
     if stdin_pipe and not stdin_pipe:is_closing() then uv.close(stdin_pipe) end
     if stdout_pipe and not stdout_pipe:is_closing() then uv.close(stdout_pipe) end
     if stderr_pipe and not stderr_pipe:is_closing() then uv.close(stderr_pipe) end
@@ -137,7 +138,7 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
   }
 
   local proc = uv.spawn('curl', options, function(code, signal)
-    vim.notify("Stream process exited. Code: " .. tostring(code) .. ", Signal: " .. tostring(signal), code == 0 and vim.log.levels.DEBUG or vim.log.levels.ERROR)
+    util.log(code == 0 and vim.log.levels.DEBUG or vim.log.levels.ERROR, "Stream process exited. Code: ", tostring(code), ", Signal: ", tostring(signal))
 
     if stdout_pipe and not stdout_pipe:is_closing() then uv.read_stop(stdout_pipe) end
     if stderr_pipe and not stderr_pipe:is_closing() then uv.read_stop(stderr_pipe) end
@@ -149,35 +150,32 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
   end)
 
   if not proc then
-    vim.notify("uv.spawn for curl failed to return a process handle.", vim.log.levels.ERROR)
+    util.log(vim.log.levels.ERROR, "uv.spawn for curl failed to return a process handle.")
     if stdin_pipe and not stdin_pipe:is_closing() then uv.close(stdin_pipe) end
     if stdout_pipe and not stdout_pipe:is_closing() then uv.close(stdout_pipe) end
     if stderr_pipe and not stderr_pipe:is_closing() then uv.close(stderr_pipe) end
     callback(nil, true)
     return
   elseif proc:is_closing() then
-    vim.notify("curl process for streaming closed immediately after spawn. Check curl command and URL.", vim.log.levels.ERROR)
-    -- on_exit should still fire and clean up pipes, but good to signal error early.
-    -- callback(nil, true) -- on_exit will call this.
+    util.log(vim.log.levels.ERROR, "curl process for streaming closed immediately after spawn. Check curl command and URL.")
     return -- on_exit will handle the callback.
   end
-  vim.notify("curl process spawned for streaming. PID: " .. tostring(proc:getpid()), vim.log.levels.DEBUG)
+  util.log(vim.log.levels.DEBUG, "curl process spawned for streaming. PID: ", tostring(proc:getpid()))
 
 
   uv.write(stdin_pipe, json_text, function(err_write)
     if err_write then
-      vim.notify("Error writing JSON to curl stdin: " .. vim.inspect(err_write), vim.log.levels.ERROR)
-      -- Try to close stdin to signal curl, then rely on on_exit
+      util.log(vim.log.levels.ERROR, "Error writing JSON to curl stdin: ", vim.inspect(err_write))
       if stdin_pipe and not stdin_pipe:is_closing() then uv.shutdown(stdin_pipe) end
       return
     end
-    vim.notify("Successfully wrote JSON to curl stdin.", vim.log.levels.DEBUG)
+    util.log(vim.log.levels.DEBUG, "Successfully wrote JSON to curl stdin.")
     if stdin_pipe and not stdin_pipe:is_closing() then
       uv.shutdown(stdin_pipe, function(err_shutdown)
         if err_shutdown then
-          vim.notify("Error shutting down curl stdin pipe: " .. vim.inspect(err_shutdown), vim.log.levels.ERROR)
+          util.log(vim.log.levels.ERROR, "Error shutting down curl stdin pipe: ", vim.inspect(err_shutdown))
         else
-          vim.notify("Successfully shut down curl stdin pipe.", vim.log.levels.DEBUG)
+          util.log(vim.log.levels.DEBUG, "Successfully shut down curl stdin pipe.")
         end
       end)
     end
@@ -186,17 +184,16 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
   local streamed_data_buffer = ''
   uv.read_start(stdout_pipe, function(err_read_stdout, data_chunk)
     if err_read_stdout then
-      vim.notify("Error reading from curl stdout: " .. vim.inspect(err_read_stdout), vim.log.levels.ERROR)
+      util.log(vim.log.levels.ERROR, "Error reading from curl stdout: ", vim.inspect(err_read_stdout))
       if stdout_pipe and not stdout_pipe:is_closing() then uv.read_stop(stdout_pipe) end
       return
     end
 
     if not data_chunk then
-      vim.notify("EOF reached on curl stdout.", vim.log.levels.DEBUG)
+      util.log(vim.log.levels.DEBUG, "EOF reached on curl stdout.")
       if stdout_pipe and not stdout_pipe:is_closing() then uv.read_stop(stdout_pipe) end
-      -- Process any remaining data in streamed_data_buffer if necessary
       if #streamed_data_buffer > 0 then
-         vim.notify("Remaining data in stdout buffer at EOF: " .. streamed_data_buffer, vim.log.levels.DEBUG)
+         util.log(vim.log.levels.DEBUG, "Remaining data in stdout buffer at EOF: ", streamed_data_buffer)
       end
       return
     end
@@ -208,7 +205,7 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
     repeat
       match_start, match_end, json_content = string.find(streamed_data_buffer, pattern, 1, true)
       if match_start then
-        vim.notify("SSE message received: " .. json_content, vim.log.levels.DEBUG)
+        util.log(vim.log.levels.DEBUG, "SSE message received: ", json_content)
         callback(json_content, false) -- false for is_error
         streamed_data_buffer = string.sub(streamed_data_buffer, match_end + 1)
       end
@@ -217,15 +214,15 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
 
   uv.read_start(stderr_pipe, function(err_read_stderr, data_stderr)
     if err_read_stderr then
-      vim.notify("Error reading from curl stderr: " .. vim.inspect(err_read_stderr), vim.log.levels.ERROR)
+      util.log(vim.log.levels.ERROR, "Error reading from curl stderr: ", vim.inspect(err_read_stderr))
       if stderr_pipe and not stderr_pipe:is_closing() then uv.read_stop(stderr_pipe) end
       return
     end
 
     if data_stderr then
-      vim.notify("Curl STDERR: [" .. data_stderr .. "]", vim.log.levels.WARN)
+      util.log(vim.log.levels.WARN, "Curl STDERR: [", data_stderr, "]")
     else
-      vim.notify("EOF reached on curl stderr.", vim.log.levels.DEBUG)
+      util.log(vim.log.levels.DEBUG, "EOF reached on curl stderr.")
       if stderr_pipe and not stderr_pipe:is_closing() then uv.read_stop(stderr_pipe) end
     end
   end)

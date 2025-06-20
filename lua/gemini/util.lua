@@ -92,4 +92,58 @@ M.strip_code = function(text)
   return code_blocks
 end
 
+local function get_log_level_str(level_num)
+  for name, num in pairs(vim.log.levels) do
+    if num == level_num then
+      return name
+    end
+  end
+  return "UNKNOWN_LEVEL(" .. tostring(level_num) .. ")"
+end
+
+M.log = function(level, ...)
+  local msg_parts = vim.tbl_map(function(val)
+    if type(val) == "table" or type(val) == "function" then
+      return vim.inspect(val)
+    else
+      return tostring(val)
+    end
+  end, {...})
+  local message = table.concat(msg_parts, " ")
+
+  -- Always notify on screen
+  vim.notify(message, level)
+
+  -- Log to file if path is configured and level is sufficient
+  -- Ensure config module is loaded to avoid circular dependency issues if util is required by config first
+  local config = require('gemini.config')
+  local log_file_path = config.get_config({ 'logging', 'file_path' })
+  local configured_log_level = config.get_config({ 'logging', 'level' })
+
+  -- Default configured_log_level to INFO if not explicitly set but file_path is.
+  if configured_log_level == nil then
+    configured_log_level = vim.log.levels.INFO
+  end
+
+  if log_file_path and level <= configured_log_level then
+    local timestamp = os.date("[%Y-%m-%d %H:%M:%S]")
+    local level_str = get_log_level_str(level)
+    local log_line = string.format("%s [%s] %s\n", timestamp, level_str, message)
+
+    local file, err_io = io.open(log_file_path, "a")
+    if file then
+      local _, err_write = file:write(log_line)
+      local _, err_close = file:close()
+      if err_write then
+        vim.notify("gemini.nvim: Error writing to log file '" .. log_file_path .. "': " .. tostring(err_write), vim.log.levels.ERROR)
+      end
+      if err_close then
+         vim.notify("gemini.nvim: Error closing log file '" .. log_file_path .. "': " .. tostring(err_close), vim.log.levels.ERROR)
+      end
+    else
+      vim.notify("gemini.nvim: Failed to open log file '" .. log_file_path .. "': " .. tostring(err_io), vim.log.levels.ERROR)
+    end
+  end
+end
+
 return M

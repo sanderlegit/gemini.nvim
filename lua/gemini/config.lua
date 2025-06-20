@@ -148,6 +148,13 @@ local default_task_config = {
   end
 }
 
+local default_logging_config = {
+  -- if file_path is nil, file logging is disabled
+  file_path = nil,
+  -- level for file logging, uses vim.log.levels (ERROR, WARN, INFO, DEBUG, TRACE)
+  level = vim.log.levels.INFO,
+}
+
 M.set_config = function(opts)
   opts = opts or {}
 
@@ -157,7 +164,8 @@ M.set_config = function(opts)
     hints = vim.tbl_deep_extend('force', {}, default_hints_config, opts.hints or {}),
     completion = vim.tbl_deep_extend('force', {}, default_completion_config, opts.completion or {}),
     instruction = vim.tbl_deep_extend('force', {}, default_instruction_config, opts.instruction or {}),
-    task = vim.tbl_deep_extend('force', {}, default_task_config, opts.task or {})
+    task = vim.tbl_deep_extend('force', {}, default_task_config, opts.task or {}),
+    logging = vim.tbl_deep_extend('force', {}, default_logging_config, opts.logging or {})
   }
 end
 

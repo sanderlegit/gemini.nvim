@@ -1,4 +1,5 @@
 local config = require('gemini.config')
+local util = require('gemini.util')
 
 local M = {}
 
@@ -7,7 +8,7 @@ local function is_nvim_version_ge(major, minor, patch)
   if v.major > major then
     return true
   elseif v.major == major then
-    if v.minor > 9 then
+    if v.minor > 9 then -- Note: This should likely be v.minor > minor, or handle 0.10.0 correctly
       return true
     elseif v.minor == minor and v.patch >= patch then
       return true
@@ -17,23 +18,27 @@ local function is_nvim_version_ge(major, minor, patch)
 end
 
 M.setup = function(opts)
+  config.set_config(opts) -- Set config early so util.log can access it
+
   if not vim.fn.executable('curl') then
-    vim.notify('curl is not found', vim.log.levels.WARN)
+    util.log(vim.log.levels.WARN, 'curl is not found')
     return
   end
 
   if not is_nvim_version_ge(0, 9, 1) then
-    vim.notify('neovim version too old', vim.log.levels.WARN)
+    util.log(vim.log.levels.WARN, 'neovim version too old, requires 0.9.1+')
     return
   end
 
-  config.set_config(opts)
+  util.log(vim.log.levels.INFO, "gemini.nvim setup initiated.")
 
   require('gemini.chat').setup()
   require('gemini.instruction').setup()
   require('gemini.hint').setup()
   require('gemini.completion').setup()
   require('gemini.task').setup()
+
+  util.log(vim.log.levels.INFO, "gemini.nvim setup complete.")
 end
 
 return M

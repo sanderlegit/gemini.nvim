@@ -31,7 +31,7 @@ end
 M.show_function_hints = function()
   local bufnr = vim.api.nvim_get_current_buf()
   if not util.treesitter_has_lang(bufnr) then
-    vim.notify("GeminiHints: Treesitter language not available for current buffer.", vim.log.levels.DEBUG)
+    util.log(vim.log.levels.DEBUG, "GeminiHints: Treesitter language not available for current buffer.")
     return
   end
 
@@ -40,7 +40,7 @@ M.show_function_hints = function()
     M.show_quick_hints(node, bufnr)
     return
   else
-    vim.notify("GeminiHints: No 'function' node found at cursor.", vim.log.levels.DEBUG)
+    util.log(vim.log.levels.DEBUG, "GeminiHints: No 'function' node found at cursor.")
   end
 end
 
@@ -52,43 +52,42 @@ M.show_quick_hints = util.debounce(function(node, bufnr)
 
   local get_prompt = config.get_config({ 'hints', 'get_prompt' })
   if not get_prompt then
-    vim.notify("GeminiHints: Prompt function (get_prompt) not found in config.", vim.log.levels.WARN)
+    util.log(vim.log.levels.WARN, "GeminiHints: Prompt function (get_prompt) not found in config.")
     return
   end
 
   local win = vim.api.nvim_get_current_win()
-  local row = node:range() -- This gets the start row, end row, start col, end col
   local user_text = get_prompt(node, bufnr)
   if not user_text then
-    vim.notify("GeminiHints: User text for prompt is nil, aborting.", vim.log.levels.DEBUG)
+    util.log(vim.log.levels.DEBUG, "GeminiHints: User text for prompt is nil, aborting.")
     return
   end
 
   local generation_config = config.get_gemini_generation_config()
   local model_id = config.get_config({ 'model', 'model_id' })
 
-  vim.notify("GeminiHints: Sending request to API.", vim.log.levels.DEBUG)
+  util.log(vim.log.levels.DEBUG, "GeminiHints: Sending request to API.")
   api.gemini_generate_content(user_text, nil, model_id, generation_config, function(result)
-    vim.notify("GeminiHints: Received API response. Code: " .. tostring(result.code), vim.log.levels.DEBUG)
+    util.log(vim.log.levels.DEBUG, "GeminiHints: Received API response. Code: ", tostring(result.code))
 
     if result.code ~= 0 then
-      vim.notify("GeminiHints API error. Code: " .. result.code, vim.log.levels.ERROR)
+      util.log(vim.log.levels.ERROR, "GeminiHints API error. Code: ", result.code)
     end
     if result.stderr and #result.stderr > 0 then
-      vim.notify("GeminiHints API stderr: " .. result.stderr, vim.log.levels.WARN)
+      util.log(vim.log.levels.WARN, "GeminiHints API stderr: ", result.stderr)
     end
 
     local json_text = result.stdout
     if not json_text or #json_text == 0 then
       if result.code == 0 and (not result.stderr or #result.stderr == 0) then
-        vim.notify("GeminiHints API returned empty stdout without other errors.", vim.log.levels.WARN)
+        util.log(vim.log.levels.WARN, "GeminiHints API returned empty stdout without other errors.")
       end
       return
     end
 
     local model_response_decoded = vim.json.decode(json_text)
     if not model_response_decoded then
-        vim.notify("GeminiHints: Failed to decode JSON response: " .. json_text, vim.log.levels.WARN)
+        util.log(vim.log.levels.WARN, "GeminiHints: Failed to decode JSON response: ", json_text)
         return
     end
     
@@ -96,16 +95,12 @@ M.show_quick_hints = util.debounce(function(node, bufnr)
     if model_response_text ~= nil and #model_response_text > 0 then
       vim.schedule(function()
         if #model_response_text > 0 then -- Re-check after schedule
-          -- node:range() returns {start_row, start_col, end_row, end_col} (0-indexed)
-          -- We want to display the hint above the function, so use start_row.
-          -- The extmark position is 0-indexed row, 0-indexed col.
-          -- show_quick_hint_text expects {1-indexed row, 1-indexed col} for its pos argument.
           local start_row, _, _, _ = node:range()
           M.show_quick_hint_text(model_response_text, win, { start_row + 1, 1 })
         end
       end)
     else
-      vim.notify("GeminiHints: Extracted text from model response is nil or empty. Full response: " .. json_text, vim.log.levels.DEBUG)
+      util.log(vim.log.levels.DEBUG, "GeminiHints: Extracted text from model response is nil or empty. Full response: ", json_text)
     end
   end)
 end, config.get_config({ 'hints', 'hints_delay' }) or 2000)
@@ -128,30 +123,27 @@ M.show_quick_hint_text = function(content, win, pos)
     id = 2, -- Unique ID for this extmark type
     virt_lines = {},
     hl_mode = 'combine',
-    virt_text_pos = 'overlay', -- Not a valid value, should be e.g. 'eol' or removed for virt_lines
     virt_lines_above = true,
   }
-  -- Remove virt_text_pos if using virt_lines, as it's for virt_text
   options.virt_text_pos = nil
 
 
   for i, l in pairs(vim.split(content, '\n')) do
-    options.virt_lines[i-1] = { { l, 'Comment' } } -- virt_lines is 0-indexed array of lines
+    options.virt_lines[i-1] = { { l, 'Comment' } } 
   end
   if #options.virt_lines == 0 then
-    vim.notify("GeminiHints: No lines to display for hint.", vim.log.levels.DEBUG)
+    util.log(vim.log.levels.DEBUG, "GeminiHints: No lines to display for hint.")
     return
   end
 
-  -- extmark row is 0-indexed
   local id = vim.api.nvim_buf_set_extmark(0, context.namespace_id, row - 1, col - 1, options)
-  vim.notify("GeminiHints: Displaying hint extmark ID " .. id .. " at row " .. (row-1), vim.log.levels.DEBUG)
+  util.log(vim.log.levels.DEBUG, "GeminiHints: Displaying hint extmark ID ", id, " at row ", (row-1))
 
 
   local bufnr = vim.api.nvim_get_current_buf()
   context.hints = {
     content = content,
-    row = row, -- Store 1-indexed row for consistency with how it was passed
+    row = row, 
     col = col,
     bufnr = bufnr,
   }
@@ -161,10 +153,10 @@ M.show_quick_hint_text = function(content, win, pos)
     callback = function()
       if context.hints and vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_get_extmark_by_id(bufnr, context.namespace_id, id, {}) then
         vim.api.nvim_buf_del_extmark(bufnr, context.namespace_id, id)
-        vim.notify("GeminiHints: Cleared hint extmark ID " .. id, vim.log.levels.DEBUG)
+        util.log(vim.log.levels.DEBUG, "GeminiHints: Cleared hint extmark ID ", id)
       end
       context.hints = nil
-      vim.api.nvim_command('redraw') -- May not be necessary if extmark removal triggers redraw
+      vim.api.nvim_command('redraw') 
     end,
     once = true,
   })
@@ -180,11 +172,11 @@ M.insert_hint_result = function()
     return
   end
 
-  local row = context.hints.row - 1 -- Convert to 0-indexed for nvim_buf_set_lines
+  local row = context.hints.row - 1 
   local lines = vim.split(context.hints.content, '\n')
-  vim.api.nvim_buf_set_lines(bufnr, row, row, false, lines) -- Insert lines *at* 'row', replacing 0 lines.
-  vim.notify("GeminiHints: Inserted hint content at row " .. row, vim.log.levels.DEBUG)
-  context.hints = nil -- Clear hint after insertion
+  vim.api.nvim_buf_set_lines(bufnr, row, row, false, lines) 
+  util.log(vim.log.levels.DEBUG, "GeminiHints: Inserted hint content at row ", row)
+  context.hints = nil 
 end
 
 return M

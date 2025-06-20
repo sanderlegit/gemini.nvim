@@ -30,7 +30,7 @@ M.start_chat = function(context)
 
   api.gemini_generate_content_stream(user_text, nil, model_id, generation_config, function(json_text, is_error)
     if is_error then
-      vim.notify("GeminiChat stream error indicated by API.", vim.log.levels.ERROR)
+      util.log(vim.log.levels.ERROR, "GeminiChat stream error indicated by API.")
       vim.schedule(function()
         -- Check if lines is still valid in case of multiple error signals
         if type(lines) == "table" then
@@ -48,19 +48,19 @@ M.start_chat = function(context)
 
     if not json_text then
       -- Stream finished (successfully or error already handled by is_error check)
-      vim.notify("GeminiChat: Stream finished or json_text is nil.", vim.log.levels.DEBUG)
+      util.log(vim.log.levels.DEBUG, "GeminiChat: Stream finished or json_text is nil.")
       return
     end
 
     local model_response = vim.json.decode(json_text)
     if not model_response then
-      vim.notify("GeminiChat: Failed to decode JSON: " .. vim.inspect(json_text), vim.log.levels.WARN)
+      util.log(vim.log.levels.WARN, "GeminiChat: Failed to decode JSON: ", vim.inspect(json_text))
       return
     end
 
     model_response = util.table_get(model_response, { 'candidates', 1, 'content', 'parts', 1, 'text' })
     if not model_response then
-      vim.notify("GeminiChat: Could not extract text from model response: " .. vim.inspect(json_text), vim.log.levels.DEBUG)
+      util.log(vim.log.levels.DEBUG, "GeminiChat: Could not extract text from model response: ", vim.inspect(json_text))
       return
     end
 
