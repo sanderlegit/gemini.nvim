@@ -20,7 +20,7 @@ M.MODELS = {
 M.gemini_generate_content = function(user_text, system_text, model_name, generation_config, callback)
   local api_key = os.getenv("GEMINI_API_KEY")
   if not api_key then
-    util.log(vim.log.levels.ERROR, "GEMINI_API_KEY environment variable not set.")
+    util.log(vim.log.levels.ERROR, true, "GEMINI_API_KEY environment variable not set.")
     if callback then
       callback({ stdout = '', stderr = "GEMINI_API_KEY not set", code = -1 })
     end
@@ -54,41 +54,39 @@ M.gemini_generate_content = function(user_text, system_text, model_name, generat
   end
 
   local json_request_body = vim.json.encode(data)
-  util.log(vim.log.levels.DEBUG, "API Request (generateContent) URL: ", api_url)
-  util.log(vim.log.levels.DEBUG, "API Request (generateContent) Body: ", json_request_body)
+  util.log(vim.log.levels.DEBUG, false, "API Request (generateContent) URL: ", api_url)
+  util.log(vim.log.levels.DEBUG, false, "API Request (generateContent) Body: ", json_request_body)
 
   local cmd = { 'curl', '-s', '-X', 'POST', api_url, '-H', 'Content-Type: application/json', '--data-binary', '@-' }
   local opts = { stdin = json_request_body }
 
   if callback then
     local wrapped_callback = function(result)
-      util.log(vim.log.levels.DEBUG, "API Response (generateContent) Code: ", result.code)
-      util.log(vim.log.levels.DEBUG, "API Response (generateContent) STDOUT: ", result.stdout)
+      util.log(vim.log.levels.DEBUG, false, "API Response (generateContent) Code: ", result.code)
+      util.log(vim.log.levels.DEBUG, false, "API Response (generateContent) STDOUT: ", result.stdout)
       if result.stderr and #result.stderr > 0 then
-        util.log(vim.log.levels.DEBUG, "API Response (generateContent) STDERR: ", result.stderr)
+        util.log(vim.log.levels.DEBUG, false, "API Response (generateContent) STDERR: ", result.stderr)
       end
       callback(result)
     end
     return vim.system(cmd, opts, wrapped_callback)
   else
-    -- For synchronous calls (e.g., tests), the caller is responsible for logging the response.
-    -- vim.system returns a Plenary Job object here.
     return vim.system(cmd, opts)
   end
 end
 
 M.gemini_generate_content_stream = function(user_text, system_text, model_name, generation_config, callback)
-  util.log(vim.log.levels.DEBUG, "gemini_generate_content_stream called. User text (first 100 chars): ", string.sub(user_text or "nil", 1, 100))
+  util.log(vim.log.levels.DEBUG, false, "gemini_generate_content_stream called. User text (first 100 chars): ", string.sub(user_text or "nil", 1, 100))
 
   local api_key = os.getenv("GEMINI_API_KEY")
   if not api_key then
-    util.log(vim.log.levels.ERROR, "GEMINI_API_KEY environment variable not set.")
-    if callback then callback(nil, true) end -- Signal error
+    util.log(vim.log.levels.ERROR, true, "GEMINI_API_KEY environment variable not set.")
+    if callback then callback(nil, true) end 
     return
   end
 
   if not callback then
-    util.log(vim.log.levels.ERROR, "Callback function is required for streaming.")
+    util.log(vim.log.levels.ERROR, true, "Callback function is required for streaming.")
     return
   end
 
@@ -118,19 +116,19 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
   end
 
   local json_request_body = vim.json.encode(data)
-  util.log(vim.log.levels.DEBUG, "API Request (streamGenerateContent) URL: ", api_url)
-  util.log(vim.log.levels.DEBUG, "API Request (streamGenerateContent) Body (first 100 chars): ", string.sub(json_request_body, 1, 100))
+  util.log(vim.log.levels.DEBUG, false, "API Request (streamGenerateContent) URL: ", api_url)
+  util.log(vim.log.levels.DEBUG, false, "API Request (streamGenerateContent) Body (first 100 chars): ", string.sub(json_request_body, 1, 100))
 
   local stdin_pipe = uv.new_pipe(false)
   local stdout_pipe = uv.new_pipe(false)
   local stderr_pipe = uv.new_pipe(false)
 
   if not stdin_pipe or not stdout_pipe or not stderr_pipe then
-    util.log(vim.log.levels.ERROR, "Failed to create one or more UV pipes for streaming.")
+    util.log(vim.log.levels.ERROR, true, "Failed to create one or more UV pipes for streaming.")
     if stdin_pipe and not stdin_pipe:is_closing() then uv.close(stdin_pipe) end
     if stdout_pipe and not stdout_pipe:is_closing() then uv.close(stdout_pipe) end
     if stderr_pipe and not stderr_pipe:is_closing() then uv.close(stderr_pipe) end
-    callback(nil, true) -- Signal error
+    callback(nil, true) 
     return
   end
 
@@ -156,36 +154,36 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
     if stdout_pipe and not stdout_pipe:is_closing() then uv.close(stdout_pipe) end
     if stderr_pipe and not stderr_pipe:is_closing() then uv.close(stderr_pipe) end
 
-    callback(nil, code ~= 0) -- Final callback: nil data, error status based on exit code
+    callback(nil, code ~= 0) 
   end)
 
   if not proc then
-    util.log(vim.log.levels.ERROR, "uv.spawn for curl failed to return a process handle.")
+    util.log(vim.log.levels.ERROR, true, "uv.spawn for curl failed to return a process handle.")
     if stdin_pipe and not stdin_pipe:is_closing() then uv.close(stdin_pipe) end
     if stdout_pipe and not stdout_pipe:is_closing() then uv.close(stdout_pipe) end
     if stderr_pipe and not stderr_pipe:is_closing() then uv.close(stderr_pipe) end
     callback(nil, true)
     return
   elseif proc:is_closing() then
-    util.log(vim.log.levels.ERROR, "curl process for streaming closed immediately after spawn. Check curl command and URL.")
-    return -- on_exit will handle the callback.
+    util.log(vim.log.levels.ERROR, true, "curl process for streaming closed immediately after spawn. Check curl command and URL.")
+    return 
   end
-  util.log(vim.log.levels.DEBUG, "curl process spawned for streaming. PID: ", tostring(proc:getpid()))
+  util.log(vim.log.levels.DEBUG, false, "curl process spawned for streaming. PID: ", tostring(proc:getpid()))
 
 
   uv.write(stdin_pipe, json_request_body, function(err_write)
     if err_write then
-      util.log(vim.log.levels.ERROR, "Error writing JSON to curl stdin: ", vim.inspect(err_write))
+      util.log(vim.log.levels.ERROR, true, "Error writing JSON to curl stdin: ", vim.inspect(err_write))
       if stdin_pipe and not stdin_pipe:is_closing() then uv.shutdown(stdin_pipe) end
       return
     end
-    util.log(vim.log.levels.DEBUG, "Successfully wrote JSON to curl stdin.")
+    util.log(vim.log.levels.DEBUG, false, "Successfully wrote JSON to curl stdin.")
     if stdin_pipe and not stdin_pipe:is_closing() then
       uv.shutdown(stdin_pipe, function(err_shutdown)
         if err_shutdown then
-          util.log(vim.log.levels.ERROR, "Error shutting down curl stdin pipe: ", vim.inspect(err_shutdown))
+          util.log(vim.log.levels.ERROR, true, "Error shutting down curl stdin pipe: ", vim.inspect(err_shutdown))
         else
-          util.log(vim.log.levels.DEBUG, "Successfully shut down curl stdin pipe.")
+          util.log(vim.log.levels.DEBUG, false, "Successfully shut down curl stdin pipe.")
         end
       end)
     end
@@ -194,16 +192,16 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
   local streamed_data_buffer = ''
   uv.read_start(stdout_pipe, function(err_read_stdout, data_chunk)
     if err_read_stdout then
-      util.log(vim.log.levels.ERROR, "Error reading from curl stdout: ", vim.inspect(err_read_stdout))
+      util.log(vim.log.levels.ERROR, true, "Error reading from curl stdout: ", vim.inspect(err_read_stdout))
       if stdout_pipe and not stdout_pipe:is_closing() then uv.read_stop(stdout_pipe) end
       return
     end
 
     if not data_chunk then
-      util.log(vim.log.levels.DEBUG, "EOF reached on curl stdout.")
+      util.log(vim.log.levels.DEBUG, false, "EOF reached on curl stdout.")
       if stdout_pipe and not stdout_pipe:is_closing() then uv.read_stop(stdout_pipe) end
       if #streamed_data_buffer > 0 then
-         util.log(vim.log.levels.DEBUG, "Remaining data in stdout buffer at EOF: ", streamed_data_buffer)
+         util.log(vim.log.levels.DEBUG, false, "Remaining data in stdout buffer at EOF: ", streamed_data_buffer)
       end
       return
     end
@@ -215,8 +213,8 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
     repeat
       match_start, match_end, json_content = string.find(streamed_data_buffer, pattern, 1, true)
       if match_start then
-        util.log(vim.log.levels.DEBUG, "SSE message received (response chunk): ", json_content)
-        callback(json_content, false) -- false for is_error
+        util.log(vim.log.levels.DEBUG, false, "SSE message received (response chunk): ", json_content)
+        callback(json_content, false) 
         streamed_data_buffer = string.sub(streamed_data_buffer, match_end + 1)
       end
     until not match_start
@@ -224,7 +222,7 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
 
   uv.read_start(stderr_pipe, function(err_read_stderr, data_stderr)
     if err_read_stderr then
-      util.log(vim.log.levels.ERROR, "Error reading from curl stderr: ", vim.inspect(err_read_stderr))
+      util.log(vim.log.levels.ERROR, true, "Error reading from curl stderr: ", vim.inspect(err_read_stderr))
       if stderr_pipe and not stderr_pipe:is_closing() then uv.read_stop(stderr_pipe) end
       return
     end
@@ -232,7 +230,7 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
     if data_stderr then
       util.log(vim.log.levels.WARN, "Curl STDERR: [", data_stderr, "]")
     else
-      util.log(vim.log.levels.DEBUG, "EOF reached on curl stderr.")
+      util.log(vim.log.levels.DEBUG, false, "EOF reached on curl stderr.")
       if stderr_pipe and not stderr_pipe:is_closing() then uv.read_stop(stderr_pipe) end
     end
   end)

@@ -39,7 +39,6 @@ end
 local function diff_with_current_file(bufnr, new_content)
   local tmpfile = vim.fn.tempname()
 
-  -- Write to the temp file
   local f = io.open(tmpfile, "w")
   if f then
     f:write(new_content)
@@ -61,7 +60,7 @@ M.run_task = function(ctx)
   local user_prompt = ctx.args
   local prompt = get_prompt_text(bufnr, user_prompt)
   if not prompt then
-    util.log(vim.log.levels.DEBUG, "GeminiTask: Prompt is nil, aborting.")
+    util.log(vim.log.levels.DEBUG, false, "GeminiTask: Prompt is nil, aborting.")
     return
   end
 
@@ -71,12 +70,12 @@ M.run_task = function(ctx)
     system_text = get_system_text()
   end
 
-  util.log(vim.log.levels.INFO, '-- running Gemini Task...')
+  util.log(vim.log.levels.INFO, true, '-- running Gemini Task...')
   local generation_config = config.get_gemini_generation_config()
   local model_id = config.get_config({ 'model', 'model_id' })
 
   api.gemini_generate_content(prompt, system_text, model_id, generation_config, function(result)
-    util.log(vim.log.levels.DEBUG, "GeminiTask: Received API response. Code: ", tostring(result.code))
+    util.log(vim.log.levels.DEBUG, false, "GeminiTask: Received API response. Code: ", tostring(result.code))
 
     if result.code ~= 0 then
       util.log(vim.log.levels.ERROR, "GeminiTask API error. Code: ", result.code)
@@ -109,27 +108,25 @@ M.run_task = function(ctx)
           context.model_response = model_response_text
           context.tmpfile = diff_with_current_file(bufnr, model_response_text)
         else
-          util.log(vim.log.levels.DEBUG, "GeminiTask: Model response (after stripping code) is empty.")
+          util.log(vim.log.levels.DEBUG, false, "GeminiTask: Model response (after stripping code) is empty.")
         end
       end)
     else
-      util.log(vim.log.levels.DEBUG, "GeminiTask: Extracted text from model response is nil or empty. Full response: ", json_text)
+      util.log(vim.log.levels.DEBUG, false, "GeminiTask: Extracted text from model response is nil or empty. Full response: ", json_text)
     end
   end)
 end
 
 local function close_split_by_filename(tmpfile)
-  -- Get the buffer number for the temp file
   local bufnr = vim.fn.bufnr(tmpfile)
   if bufnr == -1 then
     util.log(vim.log.levels.WARN, "No buffer found for file: ", tmpfile)
     return
   end
 
-  -- Find the window displaying this buffer
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_get_buf(win) == bufnr then
-      vim.api.nvim_win_close(win, true)  -- force close the window
+      vim.api.nvim_win_close(win, true)  
       vim.api.nvim_buf_delete(bufnr, { force = true, unload = true })
       return
     end
@@ -139,7 +136,7 @@ end
 
 M.apply_patch = function()
   if context.bufnr and context.model_response then
-    util.log(vim.log.levels.INFO, '-- apply changes from Gemini')
+    util.log(vim.log.levels.INFO, true, '-- apply changes from Gemini')
     local lines = vim.split(context.model_response, '\n')
     vim.api.nvim_buf_set_lines(context.bufnr, 0, -1, false, lines)
 

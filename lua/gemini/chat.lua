@@ -32,12 +32,10 @@ M.start_chat = function(context)
     if is_error then
       util.log(vim.log.levels.ERROR, "GeminiChat stream error indicated by API.")
       vim.schedule(function()
-        -- Check if lines is still valid in case of multiple error signals
         if type(lines) == "table" then
             table.insert(lines, "\nError during streaming. Check :messages for details.")
             vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
         else
-            -- Fallback if lines is not a table (e.g. if error occurs very late)
             local current_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
             table.insert(current_lines, "\nError during streaming. Check :messages for details.")
             vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, current_lines)
@@ -47,8 +45,7 @@ M.start_chat = function(context)
     end
 
     if not json_text then
-      -- Stream finished (successfully or error already handled by is_error check)
-      util.log(vim.log.levels.DEBUG, "GeminiChat: Stream finished or json_text is nil.")
+      util.log(vim.log.levels.DEBUG, false, "GeminiChat: Stream finished or json_text is nil.")
       return
     end
 
@@ -60,20 +57,16 @@ M.start_chat = function(context)
 
     model_response = util.table_get(model_response, { 'candidates', 1, 'content', 'parts', 1, 'text' })
     if not model_response then
-      util.log(vim.log.levels.DEBUG, "GeminiChat: Could not extract text from model response: ", vim.inspect(json_text))
+      util.log(vim.log.levels.DEBUG, false, "GeminiChat: Could not extract text from model response: ", vim.inspect(json_text))
       return
     end
 
     text = text .. model_response
     vim.schedule(function()
-      -- Ensure lines is updated correctly if it was modified by an error path
-      -- Or, more simply, always re-split the accumulated text
       local current_display_lines = vim.split(text, '\n')
-      -- Prepend the initial "Generating response..." if it's the first real update
       if #lines == 1 and lines[1] == 'Generating response...' and #current_display_lines > 0 then
           lines = current_display_lines
       else
-          -- This logic might become complex if errors interleave; safer to just set
           lines = current_display_lines
       end
       vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)

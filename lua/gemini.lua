@@ -21,16 +21,16 @@ M.setup = function(opts)
   config.set_config(opts) -- Set config early so util.log can access it
 
   if not vim.fn.executable('curl') then
-    util.log(vim.log.levels.WARN, 'curl is not found')
+    util.log(vim.log.levels.WARN, true, 'curl is not found')
     return
   end
 
   if not is_nvim_version_ge(0, 9, 1) then
-    util.log(vim.log.levels.WARN, 'neovim version too old, requires 0.9.1+')
+    util.log(vim.log.levels.WARN, true, 'neovim version too old, requires 0.9.1+')
     return
   end
 
-  util.log(vim.log.levels.INFO, "gemini.nvim setup initiated.")
+  util.log(vim.log.levels.INFO, true, "gemini.nvim setup initiated.")
 
   require('gemini.chat').setup()
   require('gemini.instruction').setup()
@@ -43,14 +43,14 @@ M.setup = function(opts)
     if log_file_path and #log_file_path > 0 then
       vim.cmd('vsplit ' .. vim.fn.fnameescape(log_file_path))
     else
-      util.log(vim.log.levels.WARN, "Gemini log file path is not configured. Set 'logging.file_path' in your setup options.")
+      util.log(vim.log.levels.WARN, true, "Gemini log file path is not configured. Set 'logging.file_path' in your setup options.")
     end
   end, {
     force = true,
     desc = 'Open the gemini.nvim log file, if configured.',
   })
 
-  util.log(vim.log.levels.INFO, "gemini.nvim setup complete.")
+  util.log(vim.log.levels.INFO, true, "gemini.nvim setup complete.")
 end
 
 return M

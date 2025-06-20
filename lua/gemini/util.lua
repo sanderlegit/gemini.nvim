@@ -102,25 +102,33 @@ local function get_log_level_str(level_num)
 end
 
 M.log = function(level, ...)
+  local args = {...}
+  local force_notify_explicit = nil -- nil means not set, true means force, false means never
+  local message_start_index = 1
+
+  if #args > 0 and type(args[1]) == "boolean" then
+    force_notify_explicit = args[1]
+    message_start_index = 2
+  end
+
+  local msg_parts_slice = {}
+  for i = message_start_index, #args do
+    table.insert(msg_parts_slice, args[i])
+  end
+
   local msg_parts = vim.tbl_map(function(val)
     if type(val) == "table" or type(val) == "function" then
       return vim.inspect(val)
     else
       return tostring(val)
     end
-  end, {...})
+  end, msg_parts_slice)
   local message = table.concat(msg_parts, " ")
 
-  -- Always notify on screen
-  vim.notify(message, level)
-
-  -- Log to file if path is configured and level is sufficient
-  -- Ensure config module is loaded to avoid circular dependency issues if util is required by config first
   local config = require('gemini.config')
   local log_file_path = config.get_config({ 'logging', 'file_path' })
   local configured_log_level = config.get_config({ 'logging', 'level' })
 
-  -- Default configured_log_level to INFO if not explicitly set but file_path is.
   if configured_log_level == nil then
     configured_log_level = vim.log.levels.INFO
   end
@@ -143,6 +151,25 @@ M.log = function(level, ...)
     else
       vim.notify("gemini.nvim: Failed to open log file '" .. log_file_path .. "': " .. tostring(err_io), vim.log.levels.ERROR)
     end
+  end
+
+  local should_notify_on_screen = false
+  if force_notify_explicit == true then
+    should_notify_on_screen = true
+  elseif force_notify_explicit == false then
+    should_notify_on_screen = false -- Explicitly told not to notify
+  else -- force_notify_explicit is nil (not set)
+    if not log_file_path or log_file_path == "" then -- File logging is off, so notify
+      should_notify_on_screen = true
+    else -- File logging is on, notify only for WARN or ERROR by default
+      if level <= vim.log.levels.WARN then
+        should_notify_on_screen = true
+      end
+    end
+  end
+
+  if should_notify_on_screen then
+    vim.notify(message, level)
   end
 end
 

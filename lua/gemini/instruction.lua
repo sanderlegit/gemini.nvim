@@ -37,10 +37,10 @@ M.setup = function()
       vim.api.nvim_set_option_value('filetype', 'markdown', { buf = new_buf })
       local model_id = config.get_config({ 'model', 'model_id' })
       local text = ''
-      -- Pass nil for system_text as instructions don't use it by default
+      
       api.gemini_generate_content_stream(user_text, nil, model_id, generation_config, function(json_text, is_error)
         if is_error then
-          -- Handle potential errors from the stream ending
+          util.log(vim.log.levels.ERROR, true, "GeminiInstruction: Error during streaming. See buffer for partial content, :messages or log file for details.")
           vim.schedule(function()
             local error_lines = vim.api.nvim_buf_get_lines(new_buf, 0, -1, false)
             table.insert(error_lines, "\nError during streaming.")
@@ -50,7 +50,6 @@ M.setup = function()
         end
 
         if not json_text then
-          -- Stream finished successfully
           return
         end
 
