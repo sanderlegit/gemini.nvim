@@ -199,6 +199,7 @@ end
 
 M.insert_completion_result = function()
   if not context.completion then
+    M.manual_complete()
     return
   end
 

@@ -95,7 +95,7 @@ are omitted for brevity.
       },
       completion = {
         enabled = true,
-        auto_trigger = true,
+        auto_trigger = false,
         blacklist_filetypes = { 'help', 'qf', 'json', 'yaml', 'toml', 'xml' },
         blacklist_filenames = { '.env' },
         completion_delay = 1000,
@@ -157,6 +157,7 @@ MAPPINGS                                                *gemini.nvim-mappings*
 
 <S-Tab>
     (Insert mode) Accept and insert the current inline completion suggestion.
+    If no suggestion is visible, this will request a new one.
 
 <S-Tab>
     (Normal mode) When a function hint is visible, insert the hint content
