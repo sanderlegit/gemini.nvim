@@ -157,17 +157,24 @@ M.gemini_generate_content_stream = function(user_text, system_text, model_name, 
     callback(nil, code ~= 0) 
   end)
 
-  if not proc then
-    util.log(vim.log.levels.ERROR, true, "uv.spawn for curl failed to return a process handle.")
+  -- Check if proc is a valid handle with expected methods
+  if not proc or type(proc.getpid) ~= "function" or type(proc.is_closing) ~= "function" then
+    util.log(vim.log.levels.ERROR, true, "uv.spawn for curl failed to return a valid process handle. Proc: ", vim.inspect(proc))
     if stdin_pipe and not stdin_pipe:is_closing() then uv.close(stdin_pipe) end
     if stdout_pipe and not stdout_pipe:is_closing() then uv.close(stdout_pipe) end
     if stderr_pipe and not stderr_pipe:is_closing() then uv.close(stderr_pipe) end
     callback(nil, true)
     return
-  elseif proc:is_closing() then
+  end
+
+  -- Check if the process closed immediately
+  if proc:is_closing() then
     util.log(vim.log.levels.ERROR, true, "curl process for streaming closed immediately after spawn. Check curl command and URL.")
+    -- The on_exit callback for uv.spawn should handle pipe cleanup and calling the main callback.
+    -- Thus, we just return here and let on_exit do its job.
     return 
   end
+
   util.log(vim.log.levels.DEBUG, false, "curl process spawned for streaming. PID: ", tostring(proc:getpid()))
 
 
