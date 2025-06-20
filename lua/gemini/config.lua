@@ -1,10 +1,18 @@
-local api = require('gemini.api')
-local util = require('gemini.util')
-
 local M = {}
 
+-- This helper function was moved from util.lua to break a circular dependency.
+local function table_get(t, id)
+  if type(id) ~= 'table' then return table_get(t, { id }) end
+  local success, res = true, t
+  for _, i in ipairs(id) do
+    success, res = pcall(function() return res[i] end)
+    if not success or res == nil then return end
+  end
+  return res
+end
+
 local default_model_config = {
-  model_id = api.MODELS.GEMINI_2_0_FLASH,
+  model_id = 'gemini-2.0-flash',
   temperature = 0.1,
   top_k = 128,
   response_mime_type = 'text/plain',
@@ -81,7 +89,7 @@ Instruction: Use 1 or 2 sentences to describe what the following {filetype} func
 
 local default_completion_config = {
   enabled = true,
-  auto_trigger = false,
+  auto_trigger = true,
   blacklist_filetypes = { 'help', 'qf', 'json', 'yaml', 'toml', 'xml' },
   blacklist_filenames = { '.env' },
   completion_delay = 1000,
@@ -171,7 +179,7 @@ M.set_config = function(opts)
 end
 
 M.get_config = function(keys)
-  return util.table_get(M.config, keys)
+  return table_get(M.config, keys)
 end
 
 M.get_gemini_generation_config = function()
